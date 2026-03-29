@@ -1,11 +1,141 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Order Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Order Watcher</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #111;
+      color: white;
+      padding: 40px 20px;
+    }
+
+    .box {
+      max-width: 500px;
+      margin: auto;
+      background: #1c1c1c;
+      padding: 25px;
+      border-radius: 12px;
+    }
+
+    input {
+      width: 70%;
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      margin-bottom: 10px;
+    }
+
+    button {
+      padding: 10px 16px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 5px;
+    }
+
+    #count {
+      font-size: 48px;
+      margin: 20px 0;
+      font-weight: bold;
+    }
+
+    #status {
+      margin-top: 10px;
+      color: #aaa;
+      font-size: 14px;
+    }
+  </style>
 </head>
-<body style="font-family: sans-serif; padding: 24px;">
-  <h1>Order Test Page</h1>
-  <p>New Orders: 3</p>
+<body>
+  <div class="box">
+    <h1>Order Watcher</h1>
+
+    <input type="text" id="urlInput" placeholder="Enter page URL" />
+    <br>
+    <button onclick="startWatching()">Go</button>
+    <button onclick="enableSound()">Enable Sound</button>
+
+    <div id="count">-</div>
+    <div id="status">Waiting...</div>
+  </div>
+
+  <script>
+    let lastCount = null;
+    let watchUrl = "";
+    let pollTimer = null;
+    let soundEnabled = false;
+
+    function enableSound() {
+      soundEnabled = true;
+
+      // tiny test beep so browser "unlocks" audio after user click
+      const audio = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+      audio.play().catch(() => {});
+      document.getElementById("status").textContent = "Sound enabled";
+    }
+
+    async function fetchOrderCount() {
+      if (!watchUrl) return;
+
+      try {
+        // IMPORTANT:
+        // your target page must allow being fetched by browser JS.
+        // if not, use your own JSON endpoint instead.
+        const response = await fetch(watchUrl + "?t=" + Date.now());
+        const text = await response.text();
+
+        // looks for:
+        // New Orders: 3
+        const match = text.match(/New Orders:\s*(\d+)/i);
+
+        if (!match) {
+          document.getElementById("status").textContent =
+            "Could not find 'New Orders: X' on page";
+          return;
+        }
+
+        const currentCount = parseInt(match[1], 10);
+        document.getElementById("count").textContent = currentCount;
+        document.getElementById("status").textContent =
+          "Checked at " + new Date().toLocaleTimeString();
+
+        if (lastCount !== null && currentCount > lastCount) {
+          if (soundEnabled) {
+            const audio = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
+            audio.play().catch(() => {});
+          }
+        }
+
+        lastCount = currentCount;
+      } catch (err) {
+        document.getElementById("status").textContent = "Error: " + err.message;
+      }
+    }
+
+    function startWatching() {
+      watchUrl = document.getElementById("urlInput").value.trim();
+
+      if (!watchUrl) {
+        alert("Enter a URL first");
+        return;
+      }
+
+      if (pollTimer) clearInterval(pollTimer);
+
+      lastCount = null;
+      fetchOrderCount(); // first check immediately
+
+      // auto refresh every 10 seconds
+      pollTimer = setInterval(fetchOrderCount, 10000);
+
+      document.getElementById("status").textContent = "Watching...";
+    }
+  </script>
 </body>
 </html>
