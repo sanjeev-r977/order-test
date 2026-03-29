@@ -4,65 +4,106 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Order Watcher</title>
+
   <style>
     body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background: #111;
+      margin: 0;
+      padding: 0;
+      background: #0f1115;
       color: white;
-      padding: 40px 20px;
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
     }
 
-    .box {
+    .card {
+      background: #1b1f27;
+      padding: 30px;
+      border-radius: 20px;
+      width: 90%;
       max-width: 500px;
-      margin: auto;
-      background: #1c1c1c;
-      padding: 25px;
-      border-radius: 12px;
+      text-align: center;
+      box-shadow: 0 0 30px rgba(0,0,0,0.4);
+    }
+
+    h1 {
+      margin-top: 0;
+      margin-bottom: 25px;
+      font-size: 42px;
     }
 
     input {
-      width: 70%;
-      padding: 10px;
+      width: 100%;
+      padding: 12px;
       font-size: 16px;
-      border-radius: 8px;
       border: none;
-      margin-bottom: 10px;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      box-sizing: border-box;
+      background: #2b303b;
+      color: white;
     }
 
     button {
-      padding: 10px 16px;
+      padding: 12px 18px;
       font-size: 16px;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       cursor: pointer;
       margin: 5px;
+      background: #4f8cff;
+      color: white;
+    }
+
+    button:hover {
+      background: #3b74db;
     }
 
     #count {
-      font-size: 48px;
-      margin: 20px 0;
+      font-size: 72px;
+      margin: 25px 0 10px;
       font-weight: bold;
     }
 
     #status {
-      margin-top: 10px;
-      color: #aaa;
+      color: #b0b0b0;
       font-size: 14px;
+      margin-top: 10px;
+    }
+
+    .small {
+      margin-top: 20px;
+      color: #888;
+      font-size: 13px;
     }
   </style>
 </head>
 <body>
-  <div class="box">
+
+  <div class="card">
     <h1>Order Watcher</h1>
 
-    <input type="text" id="urlInput" placeholder="Enter page URL" />
-    <br>
-    <button onclick="startWatching()">Go</button>
-    <button onclick="enableSound()">Enable Sound</button>
+    <input
+      type="text"
+      id="urlInput"
+      value="https://sanjeev-r977.github.io/order-test/orders.json"
+    />
+
+    <div>
+      <button onclick="startWatching()">Go</button>
+      <button onclick="enableSound()">Enable Sound</button>
+    </div>
 
     <div id="count">-</div>
     <div id="status">Waiting...</div>
+
+    <div class="small">
+      JSON file should look like:
+      <br>
+      { "newOrders": 3 }
+    </div>
   </div>
 
   <script>
@@ -74,9 +115,9 @@
     function enableSound() {
       soundEnabled = true;
 
-      // tiny test beep so browser "unlocks" audio after user click
       const audio = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
       audio.play().catch(() => {});
+
       document.getElementById("status").textContent = "Sound enabled";
     }
 
@@ -84,37 +125,39 @@
       if (!watchUrl) return;
 
       try {
-        // IMPORTANT:
-        // your target page must allow being fetched by browser JS.
-        // if not, use your own JSON endpoint instead.
-        const response = await fetch(watchUrl + "?t=" + Date.now());
-        const text = await response.text();
+        const response = await fetch(
+          watchUrl + "?t=" + Date.now(),
+          { cache: "no-store" }
+        );
 
-        // looks for:
-        // New Orders: 3
-        const match = text.match(/New Orders:\s*(\d+)/i);
+        const data = await response.json();
+        const currentCount = parseInt(data.newOrders, 10);
 
-        if (!match) {
+        if (isNaN(currentCount)) {
           document.getElementById("status").textContent =
-            "Could not find 'New Orders: X' on page";
+            "Could not read newOrders from JSON";
           return;
         }
 
-        const currentCount = parseInt(match[1], 10);
         document.getElementById("count").textContent = currentCount;
         document.getElementById("status").textContent =
           "Checked at " + new Date().toLocaleTimeString();
 
-        if (lastCount !== null && currentCount > lastCount) {
-          if (soundEnabled) {
-            const audio = new Audio("https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg");
-            audio.play().catch(() => {});
-          }
+        if (
+          lastCount !== null &&
+          currentCount > lastCount &&
+          soundEnabled
+        ) {
+          const audio = new Audio(
+            "https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"
+          );
+          audio.play().catch(() => {});
         }
 
         lastCount = currentCount;
       } catch (err) {
-        document.getElementById("status").textContent = "Error: " + err.message;
+        document.getElementById("status").textContent =
+          "Error: " + err.message;
       }
     }
 
@@ -126,16 +169,20 @@
         return;
       }
 
-      if (pollTimer) clearInterval(pollTimer);
+      if (pollTimer) {
+        clearInterval(pollTimer);
+      }
 
       lastCount = null;
-      fetchOrderCount(); // first check immediately
 
-      // auto refresh every 10 seconds
+      fetchOrderCount();
+
       pollTimer = setInterval(fetchOrderCount, 10000);
 
-      document.getElementById("status").textContent = "Watching...";
+      document.getElementById("status").textContent =
+        "Watching every 10 seconds...";
     }
   </script>
+
 </body>
 </html>
